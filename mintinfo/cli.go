@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/codegangsta/cli"
+	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/spf13/cobra"
 	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/tendermint/tendermint/types"
 	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/tendermint/tendermint/wire"
 )
@@ -34,8 +34,7 @@ func FieldFromTag(v reflect.Value, field string) (string, error) {
 	return "", fmt.Errorf("Invalid field name")
 }
 
-func formatOutput(c *cli.Context, i int, o interface{}) (string, error) {
-	args := c.Args()
+func formatOutput(args []string, i int, o interface{}) (string, error) {
 	if len(args) < i+1 {
 		return prettyPrint(o)
 	}
@@ -49,39 +48,39 @@ func formatOutput(c *cli.Context, i int, o interface{}) (string, error) {
 	return prettyPrint(f.Interface())
 }
 
-func cliStatus(c *cli.Context) {
+func cliStatus(cmd *cobra.Command, args []string) {
 	r, err := client.Status()
 	ifExit(err)
-	s, err := formatOutput(c, 0, r)
+	s, err := formatOutput(args, 0, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliNetInfo(c *cli.Context) {
+func cliNetInfo(cmd *cobra.Command, args []string) {
 	r, err := client.NetInfo()
 	ifExit(err)
-	s, err := formatOutput(c, 0, r)
+	s, err := formatOutput(args, 0, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliGenesis(c *cli.Context) {
+func cliGenesis(cmd *cobra.Command, args []string) {
 	r, err := client.Genesis()
 	ifExit(err)
-	s, err := formatOutput(c, 0, r)
+	s, err := formatOutput(args, 0, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliValidators(c *cli.Context) {
+func cliValidators(cmd *cobra.Command, args []string) {
 	r, err := client.ListValidators()
 	ifExit(err)
-	s, err := formatOutput(c, 0, r)
+	s, err := formatOutput(args, 0, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliConsensus(c *cli.Context) {
+func cliConsensus(cmd *cobra.Command, args []string) {
 	r, err := client.DumpConsensusState()
 	ifExit(err)
 	rs := r.RoundState
@@ -94,20 +93,19 @@ func cliConsensus(c *cli.Context) {
 	}
 }
 
-func cliUnconfirmed(c *cli.Context) {
+func cliUnconfirmed(cmd *cobra.Command, args []string) {
 	r, err := client.ListUnconfirmedTxs()
 	ifExit(err)
-	s, err := formatOutput(c, 0, r)
+	s, err := formatOutput(args, 0, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliAccounts(c *cli.Context) {
-	args := c.Args()
+func cliAccounts(cmd *cobra.Command, args []string) {
 	if len(args) == 0 {
 		r, err := client.ListAccounts()
 		ifExit(err)
-		s, err := formatOutput(c, 0, r)
+		s, err := formatOutput(args, 0, r)
 		ifExit(err)
 		fmt.Println(s)
 	} else {
@@ -121,25 +119,24 @@ func cliAccounts(c *cli.Context) {
 		if r == nil {
 			exit(fmt.Errorf("Account %X does not exist", addrBytes))
 		}
-		s, err := formatOutput(c, 1, r)
+		s, err := formatOutput(args, 1, r)
 		ifExit(err)
 		fmt.Println(s)
 	}
 }
 
-func cliNames(c *cli.Context) {
-	args := c.Args()
+func cliNames(cmd *cobra.Command, args []string) {
 	if len(args) == 0 {
 		r, err := client.ListNames()
 		ifExit(err)
-		s, err := formatOutput(c, 1, r)
+		s, err := formatOutput(args, 1, r)
 		ifExit(err)
 		fmt.Println(s)
 	} else {
 		name := args[0]
 		r, err := client.GetName(name)
 		ifExit(err)
-		s, err := formatOutput(c, 1, r)
+		s, err := formatOutput(args, 1, r)
 		ifExit(err)
 		if len(args) > 1 {
 			if args[1] == "data" {
@@ -151,8 +148,7 @@ func cliNames(c *cli.Context) {
 	}
 }
 
-func cliBlocks(c *cli.Context) {
-	args := c.Args()
+func cliBlocks(cmd *cobra.Command, args []string) {
 	if len(args) == 0 {
 		exit(fmt.Errorf("must specify a height to get a single block, or two heights to get all blocks between them"))
 	} else if len(args) == 1 {
@@ -161,7 +157,7 @@ func cliBlocks(c *cli.Context) {
 		ifExit(err)
 		r, err := client.GetBlock(int(i))
 		ifExit(err)
-		s, err := formatOutput(c, 1, r)
+		s, err := formatOutput(args, 1, r)
 		ifExit(err)
 		fmt.Println(s)
 	} else {
@@ -175,14 +171,13 @@ func cliBlocks(c *cli.Context) {
 		}
 		r, err := client.BlockchainInfo(int(minHeight), int(maxHeight))
 		ifExit(err)
-		s, err := formatOutput(c, 2, r)
+		s, err := formatOutput(args, 2, r)
 		ifExit(err)
 		fmt.Println(s)
 	}
 }
 
-func cliStorage(c *cli.Context) {
-	args := c.Args()
+func cliStorage(cmd *cobra.Command, args []string) {
 	if len(args) == 0 {
 		exit(fmt.Errorf("must specify an address to dump all storage, and an optional key to get just that storage"))
 	} else if len(args) == 1 {
@@ -191,7 +186,7 @@ func cliStorage(c *cli.Context) {
 		ifExit(err)
 		r, err := client.DumpStorage(addrBytes)
 		ifExit(err)
-		s, err := formatOutput(c, 1, r)
+		s, err := formatOutput(args, 1, r)
 		ifExit(err)
 		fmt.Println(s)
 	} else {
@@ -202,14 +197,13 @@ func cliStorage(c *cli.Context) {
 		ifExit(err)
 		r, err := client.GetStorage(addrBytes, keyBytes)
 		ifExit(err)
-		s, err := formatOutput(c, 2, r)
+		s, err := formatOutput(args, 2, r)
 		ifExit(err)
 		fmt.Println(s)
 	}
 }
 
-func cliCall(c *cli.Context) {
-	args := c.Args()
+func cliCall(cmd *cobra.Command, args []string) {
 	if len(args) < 3 {
 		exit(fmt.Errorf("must specify a from address, to address and data to send"))
 	}
@@ -222,13 +216,12 @@ func cliCall(c *cli.Context) {
 	ifExit(err)
 	r, err := client.Call(fromAddrBytes, toAddrBytes, dataBytes)
 	ifExit(err)
-	s, err := formatOutput(c, 3, r)
+	s, err := formatOutput(args, 3, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliCallCode(c *cli.Context) {
-	args := c.Args()
+func cliCallCode(cmd *cobra.Command, args []string) {
 	if len(args) < 3 {
 		exit(fmt.Errorf("must specify code to execute and data to send"))
 	}
@@ -241,13 +234,12 @@ func cliCallCode(c *cli.Context) {
 	ifExit(err)
 	r, err := client.CallCode(fromAddrBytes, codeBytes, dataBytes)
 	ifExit(err)
-	s, err := formatOutput(c, 3, r)
+	s, err := formatOutput(args, 3, r)
 	ifExit(err)
 	fmt.Println(s)
 }
 
-func cliBroadcast(c *cli.Context) {
-	args := c.Args()
+func cliBroadcast(cmd *cobra.Command, args []string) {
 	if len(args) < 1 {
 		exit(fmt.Errorf("must specify transaction bytes to broadcast"))
 	}
@@ -262,7 +254,7 @@ func cliBroadcast(c *cli.Context) {
 	ifExit(err)
 	r, err := client.BroadcastTx(tx)
 	ifExit(err)
-	s, err := formatOutput(c, 1, r)
+	s, err := formatOutput(args, 1, r)
 	ifExit(err)
 	fmt.Println(s)
 }
