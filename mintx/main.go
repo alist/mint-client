@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/codegangsta/cli"
 	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/eris-ltd/common/go/log"
+	"github.com/eris-ltd/mint-client/Godeps/_workspace/src/github.com/spf13/cobra"
 )
 
 var (
@@ -22,6 +22,8 @@ var (
 )
 
 // override the hardcoded defaults with env variables if they're set
+
+//TODO
 func init() {
 	signAddr := os.Getenv("MINTX_SIGN_ADDR")
 	if signAddr != "" {
@@ -33,9 +35,9 @@ func init() {
 		DefaultNodeRPCAddr = nodeAddr
 	}
 
-	pubKey := os.Getenv("MINTX_PUBKEY")
-	if pubKey != "" {
-		DefaultPubKey = pubKey
+	pubkey := os.Getenv("MINTX_PUBKEY")
+	if pubkey != "" {
+		DefaultPubKey = pubkey
 	}
 
 	chainID := os.Getenv("MINTX_CHAINID")
@@ -44,320 +46,149 @@ func init() {
 	}
 }
 
+var (
+
+	// flags with env var defaults
+	signAddr string
+	nodeAddr string
+	pubkey   string
+	chainID  string
+
+	sign      bool
+	broadcast bool
+	wait      bool
+
+	// tx flags
+	amtS       string
+	nonceS     string
+	addr       string
+	name       string
+	data       string
+	dataFile   string
+	toAddr     string
+	feeS       string
+	gasS       string
+	unbondAddr string
+	height     string
+
+	debugFlag bool
+)
+
 func main() {
 
-	// these are defined in here so we can update the
-	// defaults with env variables first
-	var (
-		//----------------------------------------------------------------
-		// flags with env var defaults
-		signAddrFlag = cli.StringFlag{
-			Name:  "sign-addr",
-			Usage: "set the address of the eris-keys daemon",
-			Value: DefaultKeyDaemonAddr,
-		}
+	//------------------------------------------------------------
+	// main tx commands
 
-		nodeAddrFlag = cli.StringFlag{
-			Name:  "node-addr",
-			Usage: "set the address of the tendermint rpc server",
-			Value: DefaultNodeRPCAddr,
-		}
-
-		pubkeyFlag = cli.StringFlag{
-			Name:  "pubkey",
-			Usage: "specify the pubkey",
-			Value: DefaultPubKey,
-		}
-
-		chainidFlag = cli.StringFlag{
-			Name:  "chainID",
-			Usage: "specify the chainID",
-			Value: DefaultChainID,
-		}
-
-		//----------------------------------------------------------------
-		// optional action flags
-
-		signFlag = cli.BoolFlag{
-			Name:  "sign",
-			Usage: "sign the transaction using the daemon at MINTX_SIGN_ADDR",
-		}
-
-		broadcastFlag = cli.BoolFlag{
-			Name:  "broadcast",
-			Usage: "broadcast the transaction using the daemon at MINTX_NODE_ADDR",
-		}
-
-		waitFlag = cli.BoolFlag{
-			Name:  "wait",
-			Usage: "wait for the transaction to be committed in a block",
-		}
-
-		//----------------------------------------------------------------
-		// tx data flags
-
-		amtFlag = cli.StringFlag{
-			Name:  "amt",
-			Usage: "specify an amount",
-		}
-
-		nonceFlag = cli.StringFlag{
-			Name:  "nonce",
-			Usage: "set the account nonce",
-		}
-
-		addrFlag = cli.StringFlag{
-			Name:  "addr",
-			Usage: "specify an address",
-		}
-
-		nameFlag = cli.StringFlag{
-			Name:  "name",
-			Usage: "specify a name",
-		}
-
-		dataFlag = cli.StringFlag{
-			Name:  "data",
-			Usage: "specify some data",
-		}
-
-		dataFileFlag = cli.StringFlag{
-			Name:  "data-file",
-			Usage: "specify a file with some data",
-		}
-
-		toFlag = cli.StringFlag{
-			Name:  "to",
-			Usage: "specify an address to send to",
-		}
-
-		feeFlag = cli.StringFlag{
-			Name:  "fee",
-			Usage: "specify the fee to send",
-		}
-
-		gasFlag = cli.StringFlag{
-			Name:  "gas",
-			Usage: "specify the gas limit for a CallTx",
-		}
-
-		unbondtoFlag = cli.StringFlag{
-			Name:  "unbond-to",
-			Usage: "specify an address to unbond to",
-		}
-
-		heightFlag = cli.StringFlag{
-			Name:  "height",
-			Usage: "specify a height to unbond at",
-		}
-
-		//Formatting Flags
-		debugFlag = cli.BoolFlag{
-			Name:  "debug",
-			Usage: "print debug messages",
-		}
-
-		//------------------------------------------------------------
-		// main tx commands
-
-		sendCmd = cli.Command{
-			Name:   "send",
-			Usage:  "mintx send --amt <amt> --to <addr>",
-			Action: cliSend,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-				pubkeyFlag,
-				addrFlag,
-
-				signFlag,
-				broadcastFlag,
-
-				amtFlag,
-				toFlag,
-				nonceFlag,
-			},
-		}
-
-		nameCmd = cli.Command{
-			Name:   "name",
-			Usage:  "mintx name --amt <amt> --name <name> --data <data>",
-			Action: cliName,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-				pubkeyFlag,
-				addrFlag,
-
-				signFlag,
-				broadcastFlag,
-
-				amtFlag,
-				nameFlag,
-				dataFlag,
-				dataFileFlag,
-				feeFlag,
-				nonceFlag,
-			},
-		}
-
-		callCmd = cli.Command{
-			Name:   "call",
-			Usage:  "mintx call --amt <amt> --fee <fee> --gas <gas> --to <contract addr> --data <data>",
-			Action: cliCall,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-				pubkeyFlag,
-				addrFlag,
-
-				signFlag,
-				broadcastFlag,
-				waitFlag,
-
-				amtFlag,
-				toFlag,
-				dataFlag,
-				feeFlag,
-				gasFlag,
-				nonceFlag,
-			},
-		}
-
-		bondCmd = cli.Command{
-			Name:   "bond",
-			Usage:  "mintx bond --pubkey <pubkey> --amt <amt> --unbond-to <address>",
-			Action: cliBond,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-				pubkeyFlag,
-				addrFlag,
-
-				signFlag,
-				broadcastFlag,
-
-				amtFlag,
-				unbondtoFlag,
-				nonceFlag,
-			},
-		}
-
-		unbondCmd = cli.Command{
-			Name:   "unbond",
-			Usage:  "mintx unbond --addr <address> --height <block_height>",
-			Action: cliUnbond,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-
-				signFlag,
-				broadcastFlag,
-
-				addrFlag,
-				heightFlag,
-			},
-		}
-
-		rebondCmd = cli.Command{
-			Name:   "rebond",
-			Usage:  "mintx rebond --addr <address> --height <block_height>",
-			Action: cliRebond,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-
-				signFlag,
-				broadcastFlag,
-
-				addrFlag,
-				heightFlag,
-			},
-		}
-
-		permissionsCmd = cli.Command{
-			Name:   "perm",
-			Usage:  "mintx perm <function name> <args ...>",
-			Action: cliPermissions,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-				pubkeyFlag,
-				addrFlag,
-
-				signFlag,
-				broadcastFlag,
-				nonceFlag,
-			},
-		}
-
-		newAccountCmd = cli.Command{
-			Name:   "new",
-			Usage:  "mintx new",
-			Action: cliNewAccount,
-			Flags: []cli.Flag{
-				signAddrFlag,
-				nodeAddrFlag,
-
-				chainidFlag,
-				pubkeyFlag,
-
-				signFlag,
-				broadcastFlag,
-			},
-		}
-
-		/*
-			inputCmd = cli.Command{
-				Name:   "input",
-				Usage:  "mintx input --pubkey <pubkey> --amt <amt> --nonce <nonce>",
-				Action: cliInput,
-				Flags: []cli.Flag{
-					pubkeyFlag,
-					amtFlag,
-					nonceFlag,
-					addrFlag,
-				},
+	/* TODO decide if needed
+	var inputCmd = &cobra.Command{
+				Use:   "input",
+				Short:  "mintx input --pubkey <pubkey> --amt <amt> --nonce <nonce>",
+				Run: cliInput,
 			}
 
-			outputCmd = cli.Command{
-				Name:   "output",
-				Usage:  "mintx output --addr <addr> --amt <amt>",
-				Action: cliOutput,
-				Flags: []cli.Flag{
-					addrFlag,
-					amtFlag,
-				},
-			}*/
+	var outputCmd = &cobra.Command{
+				Use:   "output",
+				Short:  "mintx output --addr <addr> --amt <amt>",
+				Run: cliOutput,
+			}
+	*/
 
-	)
-
-	app := cli.NewApp()
-	app.Name = "mintx"
-	app.Usage = "Create and broadcast tendermint txs"
-	app.Version = "0.0.2" // move core funcs to own lib
-	app.Author = "Ethan Buchman"
-	app.Email = "ethan@erisindustries.com"
-	app.Before = before
-	app.After = after
-	app.Flags = []cli.Flag{
-		debugFlag,
+	var sendCmd = &cobra.Command{
+		Use:   "send",
+		Short: "mintx send --amt <amt> --to <addr>",
+		Run:   cliSend,
 	}
-	app.Commands = []cli.Command{
+
+	var nameCmd = &cobra.Command{
+		Use:   "name",
+		Short: "mintx name --amt <amt> --name <name> --data <data>",
+		Run:   cliName,
+	}
+
+	var callCmd = &cobra.Command{
+		Use:   "call",
+		Short: "mintx call --amt <amt> --fee <fee> --gas <gas> --to <contract addr> --data <data>",
+		Run:   cliCall,
+	}
+
+	var bondCmd = &cobra.Command{
+		Use:   "bond",
+		Short: "mintx bond --pubkey <pubkey> --amt <amt> --unbond-to <address>",
+		Run:   cliBond,
+	}
+
+	var unbondCmd = &cobra.Command{
+		Use:   "unbond",
+		Short: "mintx unbond --addr <address> --height <block_height>",
+		Run:   cliUnbond,
+	}
+
+	var rebondCmd = &cobra.Command{
+		Use:   "rebond",
+		Short: "mintx rebond --addr <address> --height <block_height>",
+		Run:   cliRebond,
+	}
+
+	var permissionsCmd = &cobra.Command{
+		Use:   "perm",
+		Short: "mintx perm <function name> <args ...>",
+		Run:   cliPermissions,
+	}
+
+	var newAccountCmd = &cobra.Command{
+		Use:   "new",
+		Short: "mintx new",
+		Run:   cliNewAccount,
+	}
+
+	//XXX root
+	var rootCmd = &cobra.Command{
+		Use:   "mintx",
+		Short: "Create and broadcast tendermint txs",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			var level int
+			if debugFlag {
+				level = 2
+			}
+			log.SetLoggers(level, os.Stdout, os.Stderr)
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			log.Flush()
+		},
+	}
+
+	//TODO disentangle non-global flags
+	// these are defined in here so we can update the
+	// defaults with env variables first
+	rootCmd.PersistentFlags().StringVarP(&signAddr, "sign-addr", "", DefaultKeyDaemonAddr, "set the address of the eris-keys daemon")
+	rootCmd.PersistentFlags().StringVarP(&nodeAddr, "node-addr", "", DefaultNodeRPCAddr, "set the address of the tendermint rpc server")
+	rootCmd.PersistentFlags().StringVarP(&pubkey, "pubkey", "", DefaultPubKey, "specity the pubkey")
+	rootCmd.PersistentFlags().StringVarP(&chainID, "chainID", "", DefaultChainID, "specify the chainID")
+
+	//----------------------------------------------------------------
+	// optional action flags
+	rootCmd.PersistentFlags().BoolVarP(&sign, "sign", "", false, "sign the transaction using the daemon at MINTX_SIGN_ADDR")
+	rootCmd.PersistentFlags().BoolVarP(&broadcast, "broadcast", "", false, "broadcast the transaction using the daemon at MINTX_NODE_ADDR")
+	rootCmd.PersistentFlags().BoolVarP(&wait, "wait", "", false, "wait for the transaction to be committed in a block")
+
+	//----------------------------------------------------------------
+	// tx data flags
+	rootCmd.PersistentFlags().StringVarP(&amtS, "amt", "", "", "specify an amount ")
+	rootCmd.PersistentFlags().StringVarP(&nonceS, "nonce", "", "", "set the account nonce")
+	rootCmd.PersistentFlags().StringVarP(&addr, "addr", "", "", "specify an address")
+	rootCmd.PersistentFlags().StringVarP(&name, "name", "", "", "specify a name")
+	rootCmd.PersistentFlags().StringVarP(&data, "data", "", "", "specify some data")
+	rootCmd.PersistentFlags().StringVarP(&dataFile, "data-file", "", "", "specify a file with some data")
+	rootCmd.PersistentFlags().StringVarP(&toAddr, "to", "", "", "specify and address to send to")
+	rootCmd.PersistentFlags().StringVarP(&feeS, "fee", "", "", "specify the fee to send")
+	rootCmd.PersistentFlags().StringVarP(&gasS, "gas", "", "", "specify the gas limit for a CallTx")
+	rootCmd.PersistentFlags().StringVarP(&unbondAddr, "unbond-to", "", "", "specify an address to unbond to")
+	rootCmd.PersistentFlags().StringVarP(&height, "height", "", "", "specify a height to unbond at")
+
+	//Formatting Flags
+	rootCmd.PersistentFlags().BoolVarP(&debugFlag, "debug", "", false, "print debug messages")
+
+	rootCmd.AddCommand(
 		// inputCmd,
 		// outputCmd,
 		sendCmd,
@@ -369,23 +200,9 @@ func main() {
 		// dupeoutCmd,
 		permissionsCmd,
 		newAccountCmd,
-	}
-	app.Run(os.Args)
+	)
+	rootCmd.Execute()
 
-}
-
-func before(c *cli.Context) error {
-	var level int
-	if c.GlobalBool("debug") || c.Bool("debug") {
-		level = 2
-	}
-	log.SetLoggers(level, os.Stdout, os.Stderr)
-	return nil
-}
-
-func after(c *cli.Context) error {
-	log.Flush()
-	return nil
 }
 
 func exit(err error) {
